@@ -1,0 +1,46 @@
+
+services:
+  db:
+    image: postgres:latest # Use the latest official PostgreSQL image
+    container_name: gorecipes_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-your_db_user} # Use environment variable or default
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_db_password} # Use environment variable or default
+      POSTGRES_DB: ${DB_NAME:-recipes_db} # Use environment variable or default
+    ports:
+      - "5432:5432" # Map host port 5432 to container port 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data in a volume
+      - ./database_design.sql:/docker-entrypoint-initdb.d/init.sql # Initialize schema
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-your_db_user} -d $${POSTGRES_DB:-recipes_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: . # Build from Dockerfile in the current directory
+      dockerfile: Dockerfile
+    container_name: gorecipes_app
+    restart: unless-stopped
+    ports:
+      - "8080:8080" # Map host port 8080 to container port 8080
+    environment:
+      # These should match the ones used by your Go app to connect to the DB
+      # The Go app will connect to 'db' as the hostname because they are on the same Docker network
+      DB_HOST: db 
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-your_db_user}
+      DB_PASSWORD: ${DB_PASSWORD:-your_db_password}
+      DB_NAME: ${DB_NAME:-recipes_db}
+      DB_SSLMODE: "disable" # Typically 'disable' for local Docker development
+      GIN_MODE: "debug" # Or "release" for production
+    depends_on:
+      db: # Wait for the db service to be healthy
+        condition: service_healthy
+
+volumes:
+  postgres_data: # Define the named volume for data persistence
+    driver: local

@@ -1,0 +1,47 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when run with the -o flag
+*.out
+
+# Go workspace files (for older Go versions)
+.idea/
+.vscode/
+
+# Environment configuration
+.env
+.env.*
+!.env.example
+
+# Operating system specific files
+.DS_Store
+Thumbs.db
+
+# Go module vendor directory
+/vendor/
+
+# Compiled application binary (if you name your binary 'gorecipes_v2' or 'app')
+gorecipes_v2
+app
+
+# Docker-specific files to ignore if any are generated locally outside of build context
+# (usually not needed if .dockerignore is set up correctly)
+
+# Log files
+*.log
+
+# Coverage data
+coverage.*
+profile.out
+
+# Editor backup files
+*~
+*.swp
+*.swo
