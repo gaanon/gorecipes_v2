@@ -1,14 +1,19 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gaanon/gorecipes_v2/models"
 	"github.com/gaanon/gorecipes_v2/store"
 )
+
+// Global validator instance
+var validate = validator.New()
 
 // RecipeHandler handles HTTP requests for recipes.
 type RecipeHandler struct {
@@ -38,7 +43,12 @@ func (h *RecipeHandler) CreateRecipe(c *gin.Context) {
 		return
 	}
 
-	// TODO: Add validation for req using a library like go-playground/validator
+	// Validate the request
+	if err := validate.Struct(req); err != nil {
+		validationErrors := formatValidationErrors(err)
+		RespondWithDetailedError(c, http.StatusBadRequest, "Validation failed", validationErrors)
+		return
+	}
 
 	recipe, err := h.store.CreateRecipe(c.Request.Context(), &req)
 	if err != nil {
@@ -111,6 +121,30 @@ func (h *RecipeHandler) ListRecipes(c *gin.Context) {
 // @Failure 404 {object} APIError "Recipe not found"
 // @Failure 500 {object} APIError "Server error"
 // @Router /recipes/{id} [put]
+// formatValidationErrors converts validator.ValidationErrors into a map for a structured JSON response.
+func formatValidationErrors(err error) map[string]string {
+	errors := make(map[string]string)
+	if validationErrs, ok := err.(validator.ValidationErrors); ok {
+		for _, fieldErr := range validationErrs {
+			// fieldErr.Namespace() gives full path e.g., "RecipeRequest.Ingredients[0].IngredientName"
+			// We strip the top-level struct name for a cleaner field key.
+			namespace := fieldErr.Namespace()
+			parts := strings.SplitN(namespace, ".", 2)
+			fieldName := namespace // Default to full namespace if not in expected format (e.g. top-level field)
+			if len(parts) > 1 {
+				fieldName = parts[1]
+			}
+			errors[fieldName] = fmt.Sprintf("failed on '%s' validation (value: '%v')", fieldErr.Tag(), fieldErr.Value())
+		}
+	}
+	return errors
+}
+
+// RespondWithDetailedError sends a JSON error response with additional details.
+func RespondWithDetailedError(c *gin.Context, code int, message string, details interface{}) {
+	c.JSON(code, gin.H{"status": code, "error": message, "details": details})
+}
+
 func (h *RecipeHandler) UpdateRecipe(c *gin.Context) {
 	idStr := c.Param("id")
 	recipeID, err := uuid.Parse(idStr)
@@ -125,7 +159,12 @@ func (h *RecipeHandler) UpdateRecipe(c *gin.Context) {
 		return
 	}
 
-	// TODO: Add validation for req
+	// Validate the request
+	if err := validate.Struct(req); err != nil {
+		validationErrors := formatValidationErrors(err)
+		RespondWithDetailedError(c, http.StatusBadRequest, "Validation failed", validationErrors)
+		return
+	}
 
 	recipe, err := h.store.UpdateRecipe(c.Request.Context(), recipeID, &req)
 	if err != nil {
