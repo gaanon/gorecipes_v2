@@ -1,0 +1,383 @@
+basePath: /api/v1
+definitions:
+  handlers.APIError:
+    properties:
+      error:
+        type: string
+      status:
+        description: 'Optional: include HTTP status in body'
+        type: integer
+    type: object
+  models.MeasurementSystem:
+    enum:
+    - metric
+    - imperial
+    type: string
+    x-enum-varnames:
+    - Metric
+    - Imperial
+  models.MeasurementUnit:
+    properties:
+      abbreviation:
+        type: string
+      base_unit_id:
+        type: string
+      conversion_factor:
+        type: number
+      id:
+        description: Made pointer to handle NULL from LEFT JOIN
+        type: string
+      name:
+        description: Changed to pointer to handle NULL
+        type: string
+      system:
+        allOf:
+        - $ref: '#/definitions/models.MeasurementSystem'
+        description: From common.go; Changed to pointer
+    type: object
+  models.Recipe:
+    properties:
+      cook_time_minutes:
+        type: integer
+      created_at:
+        type: string
+      created_by:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      ingredients:
+        description: Fields for related data, to be populated when fetching a full
+          recipe
+        items:
+          $ref: '#/definitions/models.RecipeIngredient'
+        type: array
+      photo_filename:
+        type: string
+      prep_time_minutes:
+        type: integer
+      serves:
+        type: integer
+      steps:
+        items:
+          $ref: '#/definitions/models.RecipeStep'
+        type: array
+      tags:
+        items:
+          $ref: '#/definitions/models.Tag'
+        type: array
+      title:
+        type: string
+      total_time_minutes:
+        description: Read-only from DB
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.RecipeIngredient:
+    properties:
+      id:
+        type: string
+      ingredient_description:
+        description: From Ingredient table
+        type: string
+      ingredient_id:
+        type: string
+      ingredient_name:
+        description: Fields to populate from related tables for richer API responses
+        type: string
+      notes:
+        type: string
+      quantity:
+        type: number
+      sort_order:
+        type: integer
+      unit:
+        allOf:
+        - $ref: '#/definitions/models.MeasurementUnit'
+        description: Populated from MeasurementUnit table
+      unit_id:
+        type: string
+    type: object
+  models.RecipeIngredientRequest:
+    properties:
+      ingredient_name:
+        type: string
+      notes:
+        type: string
+      quantity:
+        type: number
+      sort_order:
+        minimum: 0
+        type: integer
+      unit_name:
+        description: e.g., "grams", "ml", "cup"; backend will find or create
+        type: string
+    required:
+    - ingredient_name
+    type: object
+  models.RecipeRequest:
+    properties:
+      cook_time_minutes:
+        minimum: 0
+        type: integer
+      created_by:
+        description: Optional, depends on auth context
+        type: string
+      description:
+        type: string
+      ingredients:
+        items:
+          $ref: '#/definitions/models.RecipeIngredientRequest'
+        type: array
+      photo_filename:
+        maxLength: 255
+        type: string
+      prep_time_minutes:
+        minimum: 0
+        type: integer
+      serves:
+        type: integer
+      steps:
+        items:
+          $ref: '#/definitions/models.RecipeStepRequest'
+        type: array
+      tags:
+        description: For creating/associating tags by name
+        items:
+          $ref: '#/definitions/models.RecipeTagRequest'
+        type: array
+      title:
+        maxLength: 255
+        minLength: 3
+        type: string
+    required:
+    - title
+    type: object
+  models.RecipeStep:
+    properties:
+      created_at:
+        type: string
+      duration_minutes:
+        type: integer
+      id:
+        type: string
+      instruction:
+        type: string
+      step_number:
+        type: integer
+      temperature:
+        type: string
+    type: object
+  models.RecipeStepRequest:
+    properties:
+      duration_minutes:
+        minimum: 0
+        type: integer
+      instruction:
+        minLength: 1
+        type: string
+      step_number:
+        minimum: 1
+        type: integer
+      temperature:
+        maxLength: 50
+        type: string
+    required:
+    - instruction
+    - step_number
+    type: object
+  models.RecipeTagRequest:
+    properties:
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  models.Tag:
+    properties:
+      color:
+        description: Hex color code
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support Team
+    url: http://www.example.com/support
+  description: This is the API for the GoRecipes application, allowing users to manage
+    and discover cooking recipes.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://example.com/terms/
+  title: GoRecipes API
+  version: v1
+paths:
+  /recipes:
+    get:
+      description: Get a list of all recipes (basic details).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Recipe'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+      summary: List recipes
+      tags:
+      - recipes
+    post:
+      consumes:
+      - application/json
+      description: Create a new recipe with ingredients, steps, and tags.
+      parameters:
+      - description: Recipe to create
+        in: body
+        name: recipe
+        required: true
+        schema:
+          $ref: '#/definitions/models.RecipeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Recipe'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+      summary: Create a new recipe
+      tags:
+      - recipes
+  /recipes/{id}:
+    delete:
+      description: Delete a single recipe by its UUID.
+      parameters:
+      - description: Recipe ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+      summary: Delete a recipe by ID
+      tags:
+      - recipes
+    get:
+      description: Get a single recipe by its UUID, including ingredients, steps,
+        and tags.
+      parameters:
+      - description: Recipe ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Recipe'
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+      summary: Get a recipe by ID
+      tags:
+      - recipes
+    put:
+      consumes:
+      - application/json
+      description: Update an existing recipe by its UUID. All fields are replaced.
+      parameters:
+      - description: Recipe ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Recipe data to update
+        in: body
+        name: recipe
+        required: true
+        schema:
+          $ref: '#/definitions/models.RecipeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Recipe'
+        "400":
+          description: Invalid input or ID format
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "404":
+          description: Recipe not found
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/handlers.APIError'
+      summary: Update an existing recipe
+      tags:
+      - recipes
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
